@@ -1,5 +1,6 @@
 from typing import Dict, List, Union
 
+
 class Database:
     def __init__(self):
         self._users: List[Dict[str, Union[int, str, bool]]] = [
@@ -30,7 +31,6 @@ class Database:
                 'id': self._id,
                 'name': name,
                 'email': email,
-                'activated': False
             }
         )
 
@@ -39,6 +39,19 @@ class Database:
             if user['email'] == email:
                 self._users.remove(user)
                 return
+
+    def get_all_users(self):
+        return list(self._users)
+
+    def update_user(self, email: str, name=None, new_email=None):
+        user = self.get_user_by_email(email)
+        if user is None:
+            return None
+        if name is not None:
+            user['name'] = name
+        if new_email is not None:
+            user['email'] = new_email
+        return user
 
 
 db = Database()

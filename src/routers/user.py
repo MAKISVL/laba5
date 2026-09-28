@@ -1,11 +1,19 @@
+from typing import List
+
 from fastapi import APIRouter, HTTPException, status
 
-from src.schemas.user import CreateUser, UserInfo
+from src.schemas.user import CreateUser, UserInfo, UpdateUser
 from src.fake_db import db
 
 router = APIRouter()
 
-@router.get("", status_code=status.HTTP_200_OK, response_model=UserInfo, responses={404: {"detail": "User not found"}})
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=UserInfo,
+    responses={404: {"detail": "User not found"}}
+)
 async def get_user(email: str):
     '''Получение пользователя по email'''
     user = db.get_user_by_email(email)
@@ -16,17 +24,62 @@ async def get_user(email: str):
         name=user['name'],
         email=user['email']
     )
-    
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=int,
-             responses={409: {"detail": "User with this email already exists"}})
+
+
+@router.get(
+    "/users",
+    status_code=status.HTTP_200_OK,
+    response_model=List[UserInfo]
+)
+async def get_users():
+    '''Получение списка всех пользователей'''
+    return [UserInfo(**u) for u in db.get_all_users()]
+
+
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=int,
+    responses={409: {"detail": "User with this email already exists"}}
+)
 async def create_user(data: CreateUser):
     '''Создание пользователя'''
     if db.get_user_by_email(data.email) is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User with this email already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this email already exists"
+        )
     db.create_user(data.name, data.email)
     return db.get_user_by_email(data.email)['id']
 
-@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+
+@router.patch(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=UserInfo,
+    responses={404: {"detail": "User not found"}, 409: {"detail": "Email already in use"}}
+)
+async def update_user(email: str, data: UpdateUser):
+    '''Частичное обновление пользователя'''
+    user = db.get_user_by_email(email)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if data.email is not None and data.email != email:
+        if db.get_user_by_email(data.email) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already in use"
+            )
+
+    updated = db.update_user(email, name=data.name, new_email=data.email)
+    return UserInfo(id=updated['id'], name=updated['name'], email=updated['email'])
+
+
+@router.delete(
+    "",
+    status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_user(email: str):
     '''Удаление пользователя'''
     db.delete_user_by_email(email)
